@@ -2,9 +2,18 @@
 
 **Stock → power** tracks power banks, power stations, battery backups (UPS), generators, solar panels and battery banks. Each one has reminders to charge or maintain it. Lithium packs slowly lose charge on a shelf, and a generator that never runs won't start when you need it.
 
+## Adding power
+
+Tap **add power** (or **add device** on the equipment panel). It asks what you're adding, and that decides the kind of reminder:
+
+- **Devices** get upkeep reminders: a power bank or power station to charge, a generator to run, a UPS to self-test.
+- **Supplies** get an expiry date, like any other stock: **disposable batteries** (AA, AAA, 9V, coin cells), **fuel** (gasoline, propane, stabilizer) and **other supplies** (candles, lanterns).
+
+If you type something like *Anker 10,000mAh battery pack* into the supplies form, it offers to add it as a device instead. The name, mAh and location carry over.
+
 ## Adding a device
 
-Tap **add device** and pick a type. A sensible first reminder is filled in for you:
+Pick a type, and a sensible first reminder is filled in for you:
 
 | Type | Suggested reminder | Optional extras |
 |---|---|---|
@@ -13,7 +22,7 @@ Tap **add device** and pick a type. A sensible first reminder is filled in for y
 | battery backup (UPS) | Run self-test and check battery, every 3 months | replace battery (3 yr) |
 | generator | Run under load 20–30 min, every 3 months | fresh fuel / stabilizer (6 mo), change oil (1 yr), spark plug & air filter (1 yr) |
 | solar panel | Clean panels and check cables, every 3 months | |
-| battery bank | Check voltage and top up charge, every 3 months | |
+| rechargeable batteries / bank | Check voltage and top up charge, every 3 months | |
 
 Every reminder is yours to change:
 

@@ -1,6 +1,9 @@
 import { useState } from 'preact/hooks';
 import { api } from '../api';
 import { Empty, Field, Loading, Modal, Panel, relDays, useApp, useFetch } from '../components/ui';
+import type { DeviceDraft, Kind } from '../data/devices';
+
+export { guessDevice, type DeviceDraft, type Kind } from '../data/devices';
 
 // ---------------- types ----------------
 interface Task { id: number; equipment_id: number; label: string; every_days: number; last_done_on: string | null; next_due_on: string; notes: string; days_until: number; state: 'due' | 'soon' | 'ok' }
@@ -9,7 +12,6 @@ interface Equipment {
   fuel: string; location: string; serial: string; purchased_on: string | null; charge_pct: number | null; run_hours: number | null; notes: string;
   tasks: Task[]; last_done_on: string | null;
 }
-type Kind = 'power_bank' | 'power_station' | 'ups' | 'generator' | 'solar' | 'battery' | 'other';
 interface Overview {
   today: string;
   summary: { count: number; due: (Task & { equipment_name: string })[]; soon: (Task & { equipment_name: string })[] };
@@ -19,7 +21,7 @@ interface Overview {
 interface TaskDraft { id?: number; label: string; every_days: number; next_due_on: string; last_done_on: string | null }
 
 export const KIND_LABEL: Record<Kind, string> = {
-  power_bank: 'power bank', power_station: 'power station', ups: 'battery backup (UPS)', generator: 'generator', solar: 'solar panel', battery: 'battery bank', other: 'other',
+  power_bank: 'power bank', power_station: 'power station', ups: 'battery backup (UPS)', generator: 'generator', solar: 'solar panel', battery: 'rechargeable batteries / bank', other: 'other',
 };
 const KIND_ICON: Record<Kind, string> = { power_bank: '▮', power_station: '▣', ups: '◧', generator: '⚙', solar: '☀', battery: '▤', other: '·' };
 const INTERVALS: [string, number][] = [['1 mo', 30], ['3 mo', 90], ['6 mo', 180], ['1 yr', 365]];
@@ -43,10 +45,42 @@ function specs(e: Equipment) {
   ].filter(Boolean).join(' · ');
 }
 
-export function Power() {
+/** What goes in the power tab, and the reminder each kind gets. Devices get upkeep reminders; supplies get an expiry date. */
+const DEVICE_CHOICES: { kind: Kind; title: string; meta: string }[] = [
+  { kind: 'power_bank', title: 'Power bank / portable charger', meta: 'phone chargers, jump starters · reminder to top up the charge' },
+  { kind: 'power_station', title: 'Power station', meta: 'EcoFlow, Jackery, Bluetti · reminder to charge and test the outlets' },
+  { kind: 'ups', title: 'Battery backup (UPS)', meta: 'reminder to run a self-test, and to replace the battery' },
+  { kind: 'generator', title: 'Generator', meta: 'reminder to run it under load, refresh fuel, change oil' },
+  { kind: 'battery', title: 'Rechargeable batteries / battery bank', meta: 'Eneloop, 18650, LiFePO4 · reminder to check and top up the charge' },
+  { kind: 'solar', title: 'Solar panel', meta: 'reminder to clean the panels and check cables' },
+];
+export type SupplyKind = 'batteries' | 'fuel' | 'other';
+const SUPPLY_CHOICES: { kind: SupplyKind; title: string; meta: string }[] = [
+  { kind: 'batteries', title: 'Disposable batteries', meta: 'AA, AAA, 9V, coin cells · tracked by expiry date' },
+  { kind: 'fuel', title: 'Fuel', meta: 'gasoline, propane, stabilizer · tracked by use-by date' },
+  { kind: 'other', title: 'Other supplies', meta: 'candles, lanterns, matches' },
+];
+
+/** "What are you adding?" Devices open the device form; batteries and fuel open the supplies form. */
+export function PowerChooser({ onDevice, onSupply, onClose }: { onDevice: (d: DeviceDraft) => void; onSupply: (k: SupplyKind) => void; onClose: () => void }) {
+  const row = (key: string, title: string, meta: string, go: () => void) => (
+    <li key={key}><button class="rowbtn ghost" onClick={go}><div class="title">{title}</div><div class="meta">{meta}</div></button></li>
+  );
+  return (
+    <Modal title="add power" onClose={onClose}>
+      <h3 class="section-h" style="margin-top:0">devices · upkeep reminders</h3>
+      <ul class="list">{DEVICE_CHOICES.map((c) => row(c.kind, c.title, c.meta, () => onDevice({ kind: c.kind })))}</ul>
+      <h3 class="section-h">supplies · expiry dates</h3>
+      <ul class="list">{SUPPLY_CHOICES.map((c) => row(c.kind, c.title, c.meta, () => onSupply(c.kind)))}</ul>
+    </Modal>
+  );
+}
+
+/** `add` opens the device form for a new device (owned by the inventory tab, which also has the chooser). */
+export function Power({ add, onAdd, onAddClose }: { add: DeviceDraft | null; onAdd: () => void; onAddClose: () => void }) {
   const { me, canWrite } = useApp();
   const { data, error, reload } = useFetch<Overview>('/api/power', [me.active?.id]);
-  const [editing, setEditing] = useState<Equipment | 'new' | null>(null);
+  const [editing, setEditing] = useState<Equipment | null>(null);
   const [doing, setDoing] = useState<{ task: Task; eq: Equipment } | null>(null);
   if (!data) return <Loading error={error} />;
   const s = data.summary;
@@ -61,7 +95,7 @@ export function Power() {
         <div class="stat cyan"><div class="k">next up</div><div class="v">{next ? relDays(next.t.next_due_on, data.today) : '—'}</div><div class="n">{next ? `${next.e.name}: ${next.t.label}` : 'no reminders set'}</div></div>
       </div>
 
-      <Panel title="power equipment" right={canWrite && <button class="sm primary" onClick={() => setEditing('new')}>add device</button>} flush>
+      <Panel title="power equipment" right={canWrite && <button class="sm" onClick={onAdd}>add device</button>} flush>
         {data.equipment.length === 0 ? (
           <Empty>No power equipment yet. Add power banks, battery backups and generators to get charge and maintenance reminders.</Empty>
         ) : (
@@ -92,7 +126,8 @@ export function Power() {
       </Panel>
       <p class="muted small">Lithium packs lose charge sitting on a shelf, and generators that never run won’t start when you need them. Due reminders show on the dashboard and in the daily digest.</p>
 
-      {editing && <EquipmentModal eq={editing === 'new' ? null : editing} options={data.options} today={data.today} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(); }} />}
+      {editing && <EquipmentModal eq={editing} options={data.options} today={data.today} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(); }} />}
+      {add && <EquipmentModal eq={null} draft={add} options={data.options} today={data.today} onClose={onAddClose} onSaved={() => { onAddClose(); void reload(); }} />}
       {doing && <DoneModal task={doing.task} eq={doing.eq} today={data.today} onClose={() => setDoing(null)} onSaved={() => { setDoing(null); void reload(); }} />}
     </>
   );
@@ -127,16 +162,16 @@ function DoneModal({ task, eq, today, onClose, onSaved }: { task: Task; eq: Equi
 }
 
 // ---------------- add / edit ----------------
-function EquipmentModal({ eq, options, today, onClose, onSaved }: { eq: Equipment | null; options: Overview['options']; today: string; onClose: () => void; onSaved: () => void }) {
+function EquipmentModal({ eq, draft, options, today, onClose, onSaved }: { eq: Equipment | null; draft?: DeviceDraft; options: Overview['options']; today: string; onClose: () => void; onSaved: () => void }) {
   const { toast, canWrite } = useApp();
   const firstTask = (k: Kind): TaskDraft => { const sg = options.suggestions[k][0]; return { label: sg.label, every_days: sg.every_days, next_due_on: addDays(today, sg.every_days), last_done_on: null }; };
   const [v, setV] = useState({
-    name: eq?.name ?? '', kind: eq?.kind ?? 'power_bank' as Kind, brand: eq?.brand ?? '', model: eq?.model ?? '',
-    capacity_wh: eq?.capacity_wh ?? null, capacity_mah: eq?.capacity_mah ?? null, output_w: eq?.output_w ?? null, fuel: eq?.fuel ?? '',
-    location: eq?.location ?? '', serial: eq?.serial ?? '', purchased_on: eq?.purchased_on ?? null, charge_pct: eq?.charge_pct ?? null,
+    name: eq?.name ?? draft?.name ?? '', kind: eq?.kind ?? draft?.kind ?? 'power_bank' as Kind, brand: eq?.brand ?? '', model: eq?.model ?? '',
+    capacity_wh: eq?.capacity_wh ?? null, capacity_mah: eq?.capacity_mah ?? draft?.capacity_mah ?? null, output_w: eq?.output_w ?? null, fuel: eq?.fuel ?? '',
+    location: eq?.location ?? draft?.location ?? '', serial: eq?.serial ?? '', purchased_on: eq?.purchased_on ?? null, charge_pct: eq?.charge_pct ?? null,
     run_hours: eq?.run_hours ?? null, notes: eq?.notes ?? '',
   });
-  const [tasks, setTasks] = useState<TaskDraft[]>(eq ? eq.tasks.map((t) => ({ id: t.id, label: t.label, every_days: t.every_days, next_due_on: t.next_due_on, last_done_on: t.last_done_on })) : [firstTask('power_bank')]);
+  const [tasks, setTasks] = useState<TaskDraft[]>(eq ? eq.tasks.map((t) => ({ id: t.id, label: t.label, every_days: t.every_days, next_due_on: t.next_due_on, last_done_on: t.last_done_on })) : [firstTask(draft?.kind ?? 'power_bank')]);
   const [removed, setRemoved] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof typeof v>(k: K, val: (typeof v)[K]) => setV({ ...v, [k]: val });
@@ -176,7 +211,7 @@ function EquipmentModal({ eq, options, today, onClose, onSaved }: { eq: Equipmen
   };
 
   return (
-    <Modal title={eq ? eq.name : 'add power device'} onClose={onClose} footer={canWrite && (
+    <Modal title={eq ? eq.name : `add ${KIND_LABEL[v.kind]}`} onClose={onClose} footer={canWrite && (
       <>{eq && <button class="danger" onClick={del}>delete</button>}<span style="flex:1" /><button onClick={onClose}>cancel</button><button class="primary" disabled={busy} onClick={() => save()}>save</button></>
     )}>
       <form class="form" onSubmit={save}>

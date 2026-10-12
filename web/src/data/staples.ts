@@ -166,7 +166,6 @@ export const STAPLES: Staple[] = [
   power('9V batteries, 4 pack', 'pack', 60),
   power('CR123A batteries, 6 pack', 'pack', 120),
   power('18650 rechargeable battery', 'ea'),
-  power('Power bank, 20000 mAh', 'ea'),
   power('Propane cylinder, 1 lb', 'ea'),
   power('Propane tank, 20 lb', 'ea'),
   power('Gasoline, 5 gal can', 'ea', 6, 'fuel'),

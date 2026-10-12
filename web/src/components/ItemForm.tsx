@@ -11,7 +11,7 @@ export interface ItemMeta {
 export const useItemMeta = () => useFetch<ItemMeta>('/api/items/meta');
 
 /** Quick expiry shortcuts: common shelf lives. */
-const SHORTCUTS: [string, number][] = [['+1mo', 1], ['+6mo', 6], ['+1y', 12], ['+2y', 24], ['+5y', 60]];
+const SHORTCUTS: [string, number][] = [['+1mo', 1], ['+6mo', 6], ['+1y', 12], ['+2y', 24], ['+5y', 60], ['+10y', 120]];
 const addMonths = (n: number) => { const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
 
 const PLACEHOLDER: Record<string, string> = {
@@ -20,7 +20,7 @@ const PLACEHOLDER: Record<string, string> = {
 };
 
 /** `section` is the inventory tab the form was opened from: its staples rank first. */
-export function ItemFields({ value, onChange, meta, compact, section }: { value: NewItem; onChange: (v: NewItem) => void; meta: ItemMeta | null; compact?: boolean; section?: string }) {
+export function ItemFields({ value, onChange, meta, compact, section, placeholder }: { value: NewItem; onChange: (v: NewItem) => void; meta: ItemMeta | null; compact?: boolean; section?: string; placeholder?: string }) {
   const [more, setMore] = useState(!compact && !!(value.min_qty || value.kcal_per_unit || value.notes));
   const set = <K extends keyof NewItem>(k: K, v: NewItem[K]) => onChange({ ...value, [k]: v });
   const num = (s: string) => (s === '' ? null : Number(s));
@@ -72,7 +72,7 @@ export function ItemFields({ value, onChange, meta, compact, section }: { value:
     <div class="form">
       <Field label="name">
         <div class="suggest-wrap">
-          <input required name="item-name" value={value.name} placeholder={PLACEHOLDER[section ?? value.category] ?? 'e.g. black beans'} autocomplete="off"
+          <input required name="item-name" value={value.name} placeholder={placeholder ?? PLACEHOLDER[section ?? value.category] ?? 'e.g. black beans'} autocomplete="off"
             role="combobox" aria-expanded={showList} aria-controls="item-suggest" aria-autocomplete="list"
             aria-activedescendant={hi >= 0 ? `sg-${hi}` : undefined}
             onInput={(e) => onName((e.target as HTMLInputElement).value)} onKeyDown={onKey}

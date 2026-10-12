@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { api, qs } from '../api';
 import { navigate, queryParam } from '../router';
-import { Power } from './Power';
+import { KIND_LABEL, Power, PowerChooser, guessDevice, type DeviceDraft, type SupplyKind } from './Power';
 import { Empty, Loading, Modal, Panel, Prompt, TierBadge, fmtQty, relDays, useApp, useFetch } from '../components/ui';
 import { ItemFields, blankItem, useItemMeta, type ItemMeta } from '../components/ItemForm';
 import { staplesFor, type Staple } from '../data/staples';
@@ -46,6 +46,10 @@ function Section({ section }: { section: string }) {
   const [debounced, setDebounced] = useState('');
   const [editing, setEditing] = useState<Item | null>(null);
   const [adding, setAdding] = useState<NewItem | null>(null);
+  // Power tab: "what are you adding?", then the device form or the supplies form.
+  const [choosing, setChoosing] = useState(false);
+  const [device, setDevice] = useState<DeviceDraft | null>(null);
+  const [supply, setSupply] = useState<SupplyKind | null>(null);
   const search = useRef<HTMLInputElement>(null);
 
   useEffect(() => { const t = setTimeout(() => setDebounced(q), 200); return () => clearTimeout(t); }, [q]);
@@ -69,7 +73,9 @@ function Section({ section }: { section: string }) {
     category: st?.category ?? (category || 'food'),
     ...(st ? { name: st.name, unit: st.unit, kcal_per_unit: st.kcal ?? null } : {}),
   }));
-  const addLabel = section === 'all' ? 'add item' : section === 'power' ? 'add batteries / fuel' : `add ${section}`;
+  const addLabel = section === 'all' ? 'add item' : `add ${section}`;
+  const onAdd = () => (section === 'power' ? setChoosing(true) : startAdd());
+  const addSupply = (k: SupplyKind) => { setChoosing(false); setSupply(k); setAdding(blankItem({ category: 'power', unit: k === 'batteries' ? 'pack' : 'ea' })); };
   const filtered = !!(debounced || tier);
 
   return (
@@ -77,13 +83,13 @@ function Section({ section }: { section: string }) {
       <Prompt title="inventory" sub={section === 'all' ? (data ? `${data.items.length} batches` : '') : section}>
         <a class="btn sm" href="/api/items/export.csv" download>export csv</a>
         {canWrite && <a class="btn sm" href="#/add/scan" title="Scan barcodes or a receipt">scan</a>}
-        {canWrite && <button class="primary" onClick={() => startAdd()}>{addLabel}</button>}
+        {canWrite && <button class="primary" onClick={onAdd}>{addLabel}</button>}
       </Prompt>
       <SectionTabs section={section} counts={data?.counts ?? {}} devices={data?.devices ?? 0} />
 
       {section === 'power' && (
         <>
-          <Power />
+          <Power add={device} onAdd={() => setChoosing(true)} onAddClose={() => setDevice(null)} />
           <h2 class="section-h">batteries, fuel &amp; supplies</h2>
         </>
       )}
@@ -136,18 +142,30 @@ function Section({ section }: { section: string }) {
         </Panel>
       )}
 
-      {adding && <AddItem initial={adding} section={category || undefined} meta={meta.data} onClose={() => setAdding(null)} onSaved={() => { void reload(); meta.reload(); }} />}
+      {choosing && <PowerChooser onClose={() => setChoosing(false)} onSupply={addSupply} onDevice={(d) => { setChoosing(false); setDevice(d); }} />}
+      {adding && <AddItem initial={adding} section={category || undefined} supply={supply} meta={meta.data} onClose={() => { setAdding(null); setSupply(null); }} onSaved={() => { void reload(); meta.reload(); }}
+        onDevice={section === 'power' ? (d) => { setAdding(null); setSupply(null); setDevice(d); } : undefined} />}
       {editing && <EditItem item={editing} meta={meta.data} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void reload(); meta.reload(); }} />}
     </>
   );
 }
 
-/** Add form opened from a section: category preset, suggestions from that section first. */
-function AddItem({ initial, section, meta, onClose, onSaved }: { initial: NewItem; section?: string; meta: ItemMeta | null; onClose: () => void; onSaved: () => void }) {
+const SUPPLY_FORM: Record<SupplyKind, { title: string; placeholder: string }> = {
+  batteries: { title: 'add batteries', placeholder: 'e.g. AA batteries, 24 pack' },
+  fuel: { title: 'add fuel', placeholder: 'e.g. Gasoline, 5 gal can' },
+  other: { title: 'add power supplies', placeholder: 'e.g. Candles' },
+};
+
+/** Add form opened from a section: category preset, suggestions from that section first.
+ *  In the power tab, a name that sounds like a rechargeable device offers the device form instead. */
+function AddItem({ initial, section, supply, meta, onClose, onSaved, onDevice }: {
+  initial: NewItem; section?: string; supply?: SupplyKind | null; meta: ItemMeta | null; onClose: () => void; onSaved: () => void; onDevice?: (d: DeviceDraft) => void;
+}) {
   const { toast } = useApp();
   const [v, setV] = useState<NewItem>(initial);
   const [another, setAnother] = useState(false);
   const [busy, setBusy] = useState(false);
+  const asDevice = onDevice && v.category === 'power' ? guessDevice(v.name, v.location) : null;
   const save = async (e?: Event) => {
     e?.preventDefault();
     if (!v.name.trim()) { toast('Give it a name', 'error'); return; }
@@ -160,12 +178,19 @@ function AddItem({ initial, section, meta, onClose, onSaved }: { initial: NewIte
     } catch (err) { toast((err as Error).message, 'error'); } finally { setBusy(false); }
   };
   return (
-    <Modal title={section ? `add ${section}` : 'add item'} onClose={onClose} footer={<>
+    <Modal title={supply ? SUPPLY_FORM[supply].title : section === 'power' ? 'add power supplies' : section ? `add ${section}` : 'add item'} onClose={onClose} footer={<>
       <label class="check small" style="margin-right:auto"><input type="checkbox" checked={another} onChange={(e) => setAnother((e.target as HTMLInputElement).checked)} /> add another</label>
       <button onClick={onClose}>cancel</button><button class="primary" disabled={busy} onClick={() => save()}>add</button>
     </>}>
       <form onSubmit={save}>
-        <ItemFields value={v} onChange={setV} meta={meta} section={section} />
+        <ItemFields value={v} onChange={setV} meta={meta} section={section} placeholder={supply ? SUPPLY_FORM[supply].placeholder : undefined} />
+        {asDevice && (
+          <p class="small" style="margin:10px 0 0">
+            <span class="muted">This sounds like a rechargeable device. Stock items only get an expiry date; </span>
+            <button type="button" class="sm" onClick={() => onDevice!(asDevice)}>add it as a {KIND_LABEL[asDevice.kind]}</button>
+            <span class="muted"> for {asDevice.kind === 'generator' ? 'run' : asDevice.kind === 'solar' ? 'upkeep' : 'charge'} reminders.</span>
+          </p>
+        )}
         <button type="submit" class="sr-only">add</button>
       </form>
     </Modal>
