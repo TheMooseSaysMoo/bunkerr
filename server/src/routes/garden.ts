@@ -5,7 +5,7 @@ import { HttpError, requireHousehold } from '../auth.js';
 import { touchWrite, type DB } from '../db.js';
 import { inBounds, overlaps, plantingStatus, type Rect } from '../garden-logic.js';
 import { getSettings } from '../settings.js';
-import { addDays, daysBetween, idParam, isoDate, parse, todayIn } from '../util.js';
+import { addDays, daysBetween, idParam, isoDate, parse, todayIn, parsePatch } from '../util.js';
 
 interface GardenRow { id: number; household_id: number; name: string; rows: number; cols: number; cell_size_ft: number; notes: string }
 interface PlantingRow extends Rect { id: number; garden_id: number; plant_id: number; planted_on: string; last_watered: string | null; harvested_on: string | null; notes: string }
@@ -95,7 +95,7 @@ export default async function gardenRoutes(app: FastifyInstance, deps: AppDeps) 
     const { id } = parse(idParam, req.params);
     const cur = getPlant(db, hh, id);
     if (cur.household_id !== hh) throw new HttpError(403, 'Built-in plants can’t be edited — create a custom copy');
-    const b = { ...cur, ...parse(plantInput.partial(), req.body) };
+    const b = { ...cur, ...parsePatch(plantInput, req.body) };
     db.prepare(`UPDATE plants SET name=?,glyph=?,color=?,days_to_germ=?,days_to_maturity=?,water_every_days=?,spacing_in=?,sow=?,notes=? WHERE id=? AND household_id=?`)
       .run(b.name, b.glyph.toUpperCase(), b.color, b.days_to_germ, b.days_to_maturity, b.water_every_days, b.spacing_in, b.sow, b.notes, id, hh);
     return getPlant(db, hh, id);

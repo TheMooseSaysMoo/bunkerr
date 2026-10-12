@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api';
 import { AsciiBar, Empty, Field, Loading, Modal, Panel, Prompt, Sparkline, ago, useApp, useFetch } from '../components/ui';
-import type { MeshNode } from '../types';
+import type { LinksData, MeshNode } from '../types';
+import { NodeList } from './Linked';
 
 interface MeshData {
   broker: { connected: boolean; lastMessageAt: number | null; error: string | null };
@@ -18,6 +19,7 @@ export function Mesh() {
   const { data, error, reload } = useFetch<MeshData>('/api/mesh', [me.active?.id]);
   const [adding, setAdding] = useState<{ node_id: string; label: string; site: string } | null>(null);
   const [open, setOpen] = useState<number | null>(null);
+  const linked = useFetch<LinksData>(me.links > 0 ? '/api/links' : null, [me.active?.id]);
 
   useEffect(() => { const t = setInterval(reload, 30000); return () => clearInterval(t); }, [reload]);
 
@@ -70,6 +72,10 @@ export function Mesh() {
             ))}
           </ul>
         </Panel>
+      ))}
+
+      {linked.data?.links.filter((l) => l.status === 'active' && l.feed?.mesh?.length).map((l) => (
+        <NodeList key={`link-${l.id}`} nodes={l.feed!.mesh!} title={`⇄ ${l.peer_household || l.peer_host}`} right={<a class="muted small" href={`#/linked/${l.id}`}>linked · {ago(l.feed_at)}</a>} />
       ))}
 
       {data.unclaimed.length > 0 && canWrite && (

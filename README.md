@@ -15,6 +15,7 @@ Self-hosted emergency-prep tracker for households. Keep track of food, water, me
 - **Armory:** firearms, modifications, ammunition with caliber matching, range log. Can be turned off per household; serials are masked.
 - **Alerts:** a daily digest and urgent alerts to Discord, ntfy, email or a webhook router.
 - **Households:** invite-only, with owner, member and viewer roles. People can belong to several households; data is isolated per household.
+- **Linked households:** link with a household on someone else's Bunkerr server. Each side chooses what it shares (readiness summary, inventory, power, mesh status; never the armory). The two servers can also relay a shared Meshtastic channel between separate meshes.
 - **Offline:** the app keeps a saved copy on each device, and changes made offline sync later without being applied twice.
 - **Optional failover:** a standby server keeps a copy and takes over automatically through Cloudflare.
 
@@ -36,7 +37,7 @@ Update later with `./deploy.sh`, which pulls, rebuilds and restarts. Your `.env`
 
 ## Configuration
 
-Everything lives in `.env`. Start from [`.env.example`](.env.example), which works as-is for a single server once `PUBLIC_URL` and `INTERNAL_SECRET` are set. Email, Discord and ntfy are configured inside the app. Optional features (photo import, Meshtastic, notification router, family portal, failover) are each off until you set their variables.
+Everything lives in `.env`. Start from [`.env.example`](.env.example), which works as-is for a single server once `PUBLIC_URL` and `INTERNAL_SECRET` are set. Email, Discord and ntfy are configured inside the app. Optional features (photo import, Meshtastic, notification router, family portal, failover) are each off until you set their variables. Linked households work out of the box once `PUBLIC_URL` is a public https address.
 
 Your data is one SQLite file in `data/`, with daily snapshots in `data/backups/`. See [Backup & restore](docs/07-backup-restore.md).
 
@@ -69,6 +70,7 @@ The docs live in [`docs/`](docs/) and are also shown inside the app under **Docs
 10. [Barcode lookups](docs/10-barcodes.md)
 11. [Power equipment](docs/11-power.md)
 12. [Offline](docs/12-offline.md)
+13. [Linked households](docs/13-linked-households.md)
 
 ## Data sources
 

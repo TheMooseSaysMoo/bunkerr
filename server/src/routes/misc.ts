@@ -11,6 +11,8 @@ import { householdSummary } from '../summary.js';
 import { armoryVisibleTo } from './account.js';
 import { rmDbFiles } from '../ha.js';
 import { parse } from '../util.js';
+import { linkView } from './links.js';
+import type { LinkRow } from '../federation/index.js';
 
 function requireInternal(req: FastifyRequest) {
   if (!config.internalSecret) throw new HttpError(404, 'Not found');
@@ -66,7 +68,9 @@ export default async function miscRoutes(app: FastifyInstance, deps: AppDeps) {
     const hh = requireHousehold(req);
     const { settings, armory, ...sum } = householdSummary(db, hh);
     const showArmory = armoryVisibleTo(settings, req.ctx!.role!);
-    return { ...sum, people: settings.people, armory: showArmory ? armory : null };
+    const linked = (db.prepare('SELECT * FROM links WHERE household_id=? ORDER BY peer_household COLLATE NOCASE').all(hh) as LinkRow[])
+      .map((l) => { const { feed: _f, ...v } = linkView(deps, l, false); return v; });
+    return { ...sum, people: settings.people, armory: showArmory ? armory : null, linked };
   });
 
   // ---- docs (markdown files shipped in /docs) ----

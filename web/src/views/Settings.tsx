@@ -3,6 +3,7 @@ import { api, offline } from '../api';
 import { navigate } from '../router';
 import { Field, Loading, Modal, Panel, Prompt, ago, copyText, useApp, useFetch } from '../components/ui';
 import type { Me, Role } from '../types';
+import { LinksPanel } from './Linked';
 
 export function Settings() {
   const { me } = useApp();
@@ -11,6 +12,7 @@ export function Settings() {
       <Prompt title="settings" sub={me.active ? `household: ${me.active.name}` : ''} />
       {me.active && <HouseholdPanel />}
       {me.active && <NotifyPanel />}
+      {me.active && me.features.links && <LinksPanel />}
       <EmailPanel />
       <AccountPanel />
       {me.user.isAdmin && <AdminPanel />}

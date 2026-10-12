@@ -4,3 +4,6 @@ topic readwrite msh/#
 
 user bunkerr
 topic read msh/#
+# Mesh relay with a linked Bunkerr server (docs/13-linked-households.md): let Bunkerr publish
+# the shared channel, using your gateways' root topic and the channel name.
+#topic write msh/US/MyTown/2/e/Family/#

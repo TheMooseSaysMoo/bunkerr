@@ -7,6 +7,7 @@ import type { Message, Notifier } from '../src/notify.js';
 import type { Extractor } from '../src/routes/receipt.js';
 import type { Mirror } from '../src/barcodes/mirror.js';
 import { createMailer } from '../src/mailer.js';
+import { createFederation, type FederationOptions } from '../src/federation/index.js';
 
 export const PW = 'correct-horse-battery';
 
@@ -18,7 +19,7 @@ export const fakeHa = (): Ha => ({
 
 export interface SentMail { to: string; subject: string; text: string; html?: string; headers?: Record<string, string>; from: unknown }
 
-export async function makeApp(opts: { extractor?: Extractor; barcodes?: Mirror; ha?: Ha; smtpFails?: string; smtpRefuses?: boolean } = {}) {
+export async function makeApp(opts: { extractor?: Extractor; barcodes?: Mirror; ha?: Ha; smtpFails?: string; smtpRefuses?: boolean; federation?: Partial<FederationOptions> } = {}) {
   const db = openDb(':memory:');
   const sent: { householdId: number; m: Message }[] = [];
   const notifier: Notifier = { async send(householdId, m) { sent.push({ householdId, m }); return { sent: ['fake'], errors: [] }; } };
@@ -38,8 +39,10 @@ export async function makeApp(opts: { extractor?: Extractor; barcodes?: Mirror; 
     };
   });
   const mesh = newIngestState();
-  const app = await buildApp({ db, ha: opts.ha ?? fakeHa(), notifier, mesh, extractor: opts.extractor ?? null, barcodes: opts.barcodes ?? null, mailer });
-  return { app, db, sent, mesh, notifier, mailer, mails, transports };
+  const ha = opts.ha ?? fakeHa();
+  const federation = createFederation(db, ha, notifier, mesh, { enabled: true, publicUrl: 'https://bunkerr.test', allowPrivate: false, mqttRoot: '', mqttTopics: ['msh/#'], ...opts.federation });
+  const app = await buildApp({ db, ha, notifier, mesh, extractor: opts.extractor ?? null, barcodes: opts.barcodes ?? null, mailer, federation });
+  return { app, db, sent, mesh, notifier, mailer, mails, transports, federation };
 }
 
 let pwHash: string | null = null;

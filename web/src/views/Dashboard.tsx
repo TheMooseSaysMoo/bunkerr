@@ -1,5 +1,5 @@
-import { Empty, Loading, Panel, Prompt, fmtQty, relDays, useApp, useFetch } from '../components/ui';
-import type { GardenTask } from '../types';
+import { Empty, Loading, Panel, Prompt, ago, fmtQty, relDays, useApp, useFetch } from '../components/ui';
+import type { GardenTask, Link } from '../types';
 
 interface Dash {
   today: string;
@@ -13,6 +13,7 @@ interface Dash {
   armory: { calibers: { key: string; label: string; rounds: number; min: number | null }[]; lowAmmo: { key: string; label: string; rounds: number; min: number }[]; cleaningDue: { id: number; label: string; since: number }[]; firearmCount: number; totalRounds: number } | null;
   power: { count: number; due: PowerTask[]; soon: PowerTask[] };
   mesh: { total: number; pending: number; offline: { id: number; name: string; site: string; last_heard: number | null }[]; lowBattery: { id: number; name: string; battery: number }[] };
+  linked: Link[];
 }
 
 interface PowerTask { id: number; equipment_name: string; label: string; next_due_on: string; days_until: number }
@@ -125,6 +126,26 @@ export function Dashboard() {
               <div key={c.key} class={c.min != null && c.rounds < c.min ? 'warn' : ''}>{c.label.padEnd(16, '\u00a0')} {c.rounds.toLocaleString()}{c.min != null && c.rounds < c.min ? ` / ${c.min} ↓` : ''}</div>
             ))}</div>
             {d.armory.cleaningDue.length > 0 && <p class="warn small" style="margin:6px 0 0"># cleaning due: {d.armory.cleaningDue.map((f) => f.label).join(', ')}</p>}
+          </Panel>
+        )}
+
+        {d.linked.length > 0 && (
+          <Panel title="linked households" right={<a href="#/linked">all →</a>} flush>
+            <ul class="list">
+              {d.linked.map((l) => (
+                <li key={l.id}>
+                  <span aria-hidden="true">⇄</span>
+                  <a class="grow" href={`#/linked/${l.id}`} style="color:inherit;text-decoration:none">
+                    <div class="title">{l.peer_household || l.peer_host}</div>
+                    <div class="meta">
+                      {l.status === 'ended' ? <span class="err">link ended</span>
+                        : l.summary ? `food ${days(l.summary.foodDays)} · water ${days(l.summary.waterDays)}${l.summary.expired ? ` · ${l.summary.expired} expired` : ''}` : 'no summary shared'}
+                      {l.status === 'active' && <span class={l.pull_error ? 'warn' : ''}> · {l.feed_at ? ago(l.feed_at) : 'waiting'}</span>}
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </Panel>
         )}
 

@@ -27,9 +27,15 @@ export interface IngestState {
   error: string | null;
   /** Recently heard nodes nobody has claimed (admin-only view, helps first-time claiming). */
   unclaimed: Map<string, { node_id: string; long_name?: string; short_name?: string; hw_model?: string; last_heard: number }>;
+  /** Root topic the local gateways publish under (e.g. msh/US/MyTown), learned from traffic. */
+  root: string | null;
+  /** Publishes to the broker; false when not connected. Set while MQTT is configured. */
+  publish: ((topic: string, payload: Buffer) => boolean) | null;
+  /** Every channel packet (".../2/e/..."), for the mesh relay to linked servers. */
+  onRaw: ((topic: string, payload: Buffer) => void) | null;
 }
 
-export const newIngestState = (): IngestState => ({ connected: false, lastMessageAt: null, messages: 0, error: null, unclaimed: new Map() });
+export const newIngestState = (): IngestState => ({ connected: false, lastMessageAt: null, messages: 0, error: null, unclaimed: new Map(), root: null, publish: null, onRaw: null });
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v: unknown) => (typeof v === 'string' && v.length ? v : null);
@@ -118,7 +124,15 @@ export function startMqtt(db: DB, cfg: Config, state: IngestState, log: { info: 
   });
   client.on('close', () => { state.connected = false; });
   client.on('error', (err) => { state.error = err.message; });
+  state.publish = (topic, payload) => {
+    if (!client.connected) return false;
+    client.publish(topic, payload, { qos: 0 });
+    return true;
+  };
   client.on('message', (topic, buf) => {
+    const root = topic.match(/^(.+)\/2\/(?:e|json|map)\//);
+    if (root) state.root = root[1];
+    if (topic.includes('/2/e/')) { try { state.onRaw?.(topic, buf); } catch { /* relay problems never stop ingest */ } }
     if (!topic.includes('/json/')) return; // protobuf (/e/) and map-report topics are skipped
     state.messages++;
     try { handlePacket(db, state, JSON.parse(buf.toString('utf8')) as MeshJson); }

@@ -365,6 +365,36 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idempotency_created ON idempotency(created_at);
   `,
+  /* 9: linked households on other Bunkerr servers (each side chooses what it shares) */ `
+  CREATE TABLE link_codes (
+    id INTEGER PRIMARY KEY,
+    household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL UNIQUE,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER
+  );
+  CREATE TABLE links (
+    id INTEGER PRIMARY KEY,
+    household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'active',   -- active | ended (the other side unlinked)
+    peer_url TEXT NOT NULL,                  -- the other server's PUBLIC_URL
+    peer_household TEXT NOT NULL DEFAULT '',
+    in_token_hash TEXT NOT NULL UNIQUE,      -- sha256 of the token the other server presents to us
+    out_token_sealed TEXT NOT NULL,          -- the token we present to them
+    share TEXT NOT NULL DEFAULT '{}',        -- what we share: {"summary":true,"inventory":false,...}
+    relay_channels TEXT NOT NULL DEFAULT '', -- Meshtastic channel names relayed both ways (instance admins set it)
+    feed TEXT,                               -- what they share with us, as last fetched
+    feed_at INTEGER,
+    pull_at INTEGER,
+    pull_error TEXT,
+    seen_at INTEGER,                         -- last time they fetched from us
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX links_hh ON links(household_id);
+  `,
 ];
 
 export function openDb(file: string): DB {

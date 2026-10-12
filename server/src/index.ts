@@ -11,6 +11,7 @@ import { claudeExtractor } from './routes/receipt.js';
 import { startScheduler } from './scheduler.js';
 import { createMailer } from './mailer.js';
 import { openMirror, startMirrorSchedule } from './barcodes/mirror.js';
+import { createFederation } from './federation/index.js';
 
 const dbFile = path.join(config.dataDir, 'bunkerr.db');
 const db = openDb(dbFile);
@@ -18,6 +19,9 @@ const ha = createHa(db, config, dbFile);
 const mailer = createMailer(db);
 const notifier = createNotifier(db, PROVIDERS, config.webhookRouterUrl ? webhookRouterProvider(config.webhookRouterUrl) : null, mailer);
 const mesh = newIngestState();
+const federation = createFederation(db, ha, notifier, mesh, {
+  enabled: config.federation, publicUrl: config.publicUrl, allowPrivate: config.federationAllowPrivate, mqttRoot: config.mqttRoot, mqttTopics: config.mqttTopics,
+});
 const extractor = config.anthropicKey ? claudeExtractor(config.anthropicKey, config.claudeModel) : null;
 
 // The mirror only logs during refreshes, which start after `app` exists.
@@ -27,7 +31,7 @@ const barcodes = openMirror(path.join(config.dataDir, 'barcodes.db'), {
   log: { info: (o, m) => app.log.info(o, m), warn: (o, m) => app.log.warn(o, m) },
 });
 
-const app = await buildApp({ db, ha, notifier, mesh, extractor, barcodes, mailer }, { logger: true });
+const app = await buildApp({ db, ha, notifier, mesh, extractor, barcodes, mailer, federation }, { logger: true });
 
 if (fs.existsSync(config.webDir)) {
   await app.register(fastifyStatic, { root: config.webDir, wildcard: false });
@@ -43,6 +47,7 @@ if (fs.existsSync(config.webDir)) {
 ha.start(app.log);
 const mqttClient = startMqtt(db, config, mesh, app.log);
 const stopScheduler = config.schedulerEnabled ? startScheduler(db, ha, notifier, app.log) : () => {};
+federation.start(app.log);
 const stopMirror = config.schedulerEnabled && config.barcodeMirror ? startMirrorSchedule(barcodes, app.log) : () => {};
 
 await app.listen({ port: config.port, host: config.host });
@@ -51,6 +56,7 @@ app.log.info({ node: config.nodeName, role: config.role, active: ha.isActive() }
 const shutdown = async () => {
   stopScheduler();
   stopMirror();
+  federation.stop();
   ha.stop();
   mqttClient?.end();
   await app.close();

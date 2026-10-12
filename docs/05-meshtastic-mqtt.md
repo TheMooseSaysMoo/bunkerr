@@ -62,6 +62,10 @@ Device telemetry is broadcast every 30 minutes by default (Telemetry → Device 
 
 **Mesh → add node.** Enter the ID (`!a1b2c3d4`, shown in the app's node list), plus a label and a site (Home, Cabin, Car…). A node can be claimed by only one household. Admins also see a list of recently heard unclaimed node IDs to make claiming easier.
 
+## Connecting to another mesh
+
+Two separate meshes (yours and a friend's, each with its own broker and Bunkerr) can share one channel through a **linked household**: the two Bunkerr servers relay that channel's packets to each other over https. See [Linked households → Mesh relay](13-linked-households.md#mesh-relay-optional).
+
 ## Troubleshooting
 
 - **Broker "disconnected":** check `MQTT_URL`, the credentials, and `docker compose logs mosquitto`.

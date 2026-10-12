@@ -15,6 +15,7 @@ import { Mesh } from './views/Mesh';
 import { Docs } from './views/Docs';
 import { Settings } from './views/Settings';
 import { Armory } from './views/Armory';
+import { Linked, LinkCodeLanding } from './views/Linked';
 
 const NAV = [
   { path: '', label: 'Dashboard', short: 'Home', ico: '⌂', key: 'h' },
@@ -23,6 +24,7 @@ const NAV = [
   { path: 'garden', label: 'Gardens', short: 'Garden', ico: '♣', key: 'g' },
   { path: 'armory', label: 'Armory', short: 'Armory', ico: '⌖', key: 'r' },
   { path: 'mesh', label: 'Mesh', short: 'Mesh', ico: '◉', key: 'm' },
+  { path: 'linked', label: 'Linked', short: 'Linked', ico: '⇄', key: 'l' },
   { path: 'docs', label: 'Docs', short: 'Docs', ico: '?', key: 'd' },
   { path: 'settings', label: 'Settings', short: 'Settings', ico: '⚙', key: 's' },
 ];
@@ -72,7 +74,7 @@ function Root() {
   // Sync: send queued changes and refresh saved data on start, when the connection comes back, and every 10 min.
   useEffect(() => {
     if (state !== 'ready' || !me) return;
-    const urls = () => ['/api/me', '/api/dashboard', '/api/settings', '/api/items', '/api/items/meta', '/api/power', '/api/household', '/api/gardens', '/api/plants', '/api/mesh', '/api/docs',
+    const urls = () => ['/api/me', '/api/dashboard', '/api/settings', '/api/items', '/api/items/meta', '/api/power', '/api/household', '/api/gardens', '/api/plants', '/api/mesh', '/api/docs', '/api/links',
       ...(me.armoryVisible ? ['/api/armory'] : [])];
     const sync = async () => { await offline.flush(); await offline.prefetch(urls()); };
     let busy = false;
@@ -104,6 +106,7 @@ function Root() {
 
   if (state === 'loading') return <div class="auth"><p class="muted">booting bunkerr…</p></div>;
   if (route[0] === 'request' && (state === 'anon' || !me)) return <><RequestAccess token={route[1]} onAuthed={onAuthed} />{toastEl}</>;
+  if (route[0] === 'link') return <LinkCodeLanding />;
   if (route[0] === 'join') return <>{<Join token={route[1] ?? ''} me={me} onAuthed={onAuthed} toast={toast} />}{toastEl}</>;
   if (state === 'anon' || !me) return <><Login onAuthed={(m) => { void offline.rememberMe(m); onAuthed(m); }} />{toastEl}</>;
 
@@ -154,13 +157,14 @@ function Shell({ route }: { route: string[] }) {
     case 'garden': view = route[1] ? <GardenEditor id={Number(route[1])} /> : <Gardens />; break;
     case 'mesh': view = <Mesh />; break;
     case 'armory': view = <Armory tab={route[1]} />; break;
+    case 'linked': view = <Linked id={route[1] ? Number(route[1]) : undefined} />; break;
     case 'docs': view = <Docs slug={route[1]} />; break;
     case 'settings': view = <Settings />; break;
     default: view = <p>404 — <a href="#/">go home</a></p>;
   }
 
   const inst = me.instance;
-  const nav = NAV.filter((n) => n.path !== 'armory' || me.armoryVisible);
+  const nav = NAV.filter((n) => (n.path !== 'armory' || me.armoryVisible) && (n.path !== 'linked' || me.links > 0));
   return (
     <div class="shell">
       <nav class="sidebar" aria-label="Main">
@@ -205,7 +209,8 @@ function Shell({ route }: { route: string[] }) {
         </main>
       </div>
       <nav class="tabbar" aria-label="Main">
-        {nav.filter((n) => n.path !== 'docs' && n.path !== 'settings').map((n) => (
+        {/* Linked is reached from the dashboard on phones; six tabs is the most that fit. */}
+        {nav.filter((n) => n.path !== 'docs' && n.path !== 'settings' && n.path !== 'linked').map((n) => (
           <a key={n.path} class={n.cls} href={`#/${n.path}`} aria-current={section === n.path ? 'page' : undefined}>
             <span class="ico" aria-hidden="true">{n.ico}</span>{n.short}
           </a>

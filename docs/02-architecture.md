@@ -32,6 +32,7 @@
 | Barcodes | offline mirror `/data/barcodes.db` (USDA FoodData Central + Open Food Facts US), then online Open Food Facts family, then UPCitemdb | household's own past entries take priority; see [Barcode lookups](10-barcodes.md) |
 | Notifications | Discord webhook, ntfy, email (SMTP), optional Home Assistant-style webhook router | per household; daily digest + mesh alerts; email per person |
 | Scheduler | node-cron, in process | runs only on the **active** instance |
+| Linked households | server-to-server https with per-link bearer tokens (`/api/federation/*`) | each side pulls what the other shares every 5 min and keeps the last copy; optional Meshtastic channel relay. See [Linked households](13-linked-households.md) |
 
 ## Repository layout
 
@@ -46,7 +47,7 @@ setup.sh, deploy.sh  first-run setup and git-based updates
 
 ## Data model (short)
 
-`users` ⟷ `memberships(role)` ⟷ `households`. Tenant tables: `items`, `item_events`, `gardens`, `plantings`, `plants` (household_id NULL = built-in catalogue), `mesh_nodes`, `mesh_telemetry` (30-day retention), `settings`, `notifications` (dedupe log), `receipt_usage`. Schema migrations are applied automatically at startup (`PRAGMA user_version`).
+`users` ⟷ `memberships(role)` ⟷ `households`. Tenant tables: `items`, `item_events`, `gardens`, `plantings`, `plants` (household_id NULL = built-in catalogue), `mesh_nodes`, `mesh_telemetry` (30-day retention), `settings`, `notifications` (dedupe log), `receipt_usage`, `links` / `link_codes` (linked households). Schema migrations are applied automatically at startup (`PRAGMA user_version`).
 
 ## Local development
 

@@ -22,6 +22,8 @@ import hubRoutes from './routes/hub.js';
 import accessRoutes from './routes/access.js';
 import powerRoutes from './routes/power.js';
 import emailRoutes from './routes/email.js';
+import linkRoutes from './routes/links.js';
+import type { Federation } from './federation/index.js';
 import type { Mailer } from './mailer.js';
 import { registerIdempotency } from './idempotency.js';
 
@@ -33,6 +35,7 @@ export interface AppDeps {
   extractor: Extractor | null;
   barcodes: Mirror | null;
   mailer: Mailer;
+  federation: Federation;
 }
 
 export async function buildApp(deps: AppDeps, opts: { logger?: boolean; trustProxy?: boolean } = {}): Promise<FastifyInstance> {
@@ -53,9 +56,9 @@ export async function buildApp(deps: AppDeps, opts: { logger?: boolean; trustPro
     if (!req.url.startsWith('/api/')) return;
     req.ctx = loadCtx(deps.db, req);
     // CSRF: mutating API calls must carry a custom header that cross-site forms cannot set.
-    // Internal and hub routes authenticate with a shared secret, and access-request decisions with a
-    // signed URL (a webhook router performs them), not the cookie, so CSRF doesn't apply.
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !req.url.startsWith('/api/internal/') && !req.url.startsWith('/api/hub/') && !/^\/api\/access-requests\/\d+\/(approve|reject)\?/.test(req.url) && !req.url.startsWith('/api/email/unsubscribe?') && req.headers['x-bunkerr'] !== '1') {
+    // Internal and hub routes authenticate with a shared secret, linked servers with a bearer token, and
+    // access-request decisions with a signed URL (a webhook router performs them), not the cookie, so CSRF doesn't apply.
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !req.url.startsWith('/api/internal/') && !req.url.startsWith('/api/hub/') && !req.url.startsWith('/api/federation/') && !/^\/api\/access-requests\/\d+\/(approve|reject)\?/.test(req.url) && !req.url.startsWith('/api/email/unsubscribe?') && req.headers['x-bunkerr'] !== '1') {
       throw new HttpError(403, 'Missing X-Bunkerr header');
     }
   });
@@ -69,7 +72,7 @@ export async function buildApp(deps: AppDeps, opts: { logger?: boolean; trustPro
     return reply.status(500).send({ error: 'Internal error' });
   });
 
-  for (const routes of [accountRoutes, householdRoutes, adminRoutes, inventoryRoutes, barcodeRoutes, receiptRoutes, gardenRoutes, meshRoutes, armoryRoutes, powerRoutes, emailRoutes, hubRoutes, accessRoutes, miscRoutes]) {
+  for (const routes of [accountRoutes, householdRoutes, adminRoutes, inventoryRoutes, barcodeRoutes, receiptRoutes, gardenRoutes, meshRoutes, armoryRoutes, powerRoutes, emailRoutes, linkRoutes, hubRoutes, accessRoutes, miscRoutes]) {
     await app.register(async (scope) => routes(scope, deps));
   }
   return app;

@@ -4,7 +4,7 @@ import type { AppDeps } from '../app.js';
 import { HttpError, requireHousehold } from '../auth.js';
 import { touchWrite, type DB } from '../db.js';
 import { getSettings } from '../settings.js';
-import { expiryTier, idParam, isoDate, parse, todayIn } from '../util.js';
+import { expiryTier, idParam, isoDate, parse, todayIn, parsePatch } from '../util.js';
 
 export const CATEGORIES = ['food', 'water', 'medical', 'hygiene', 'power', 'tools', 'comms', 'garden', 'other'] as const;
 
@@ -121,7 +121,7 @@ export default async function inventoryRoutes(app: FastifyInstance, deps: AppDep
     const hh = requireHousehold(req, 'member');
     const { id } = parse(idParam, req.params);
     const cur = getItem(db, hh, id);
-    const patch = parse(itemInput.partial(), req.body);
+    const patch = parsePatch(itemInput, req.body);
     const next = { ...cur, ...patch };
     db.prepare(`UPDATE items SET name=?,category=?,qty=?,unit=?,location=?,barcode=?,expires_on=?,opened_on=?,min_qty=?,kcal_per_unit=?,notes=?,updated_at=?
       WHERE id=? AND household_id=?`).run(next.name, next.category, next.qty, next.unit, next.location, next.barcode ?? null, next.expires_on ?? null,

@@ -5,7 +5,7 @@ import { HttpError, requireHousehold, type Role } from '../auth.js';
 import { touchWrite, type DB } from '../db.js';
 import { CALIBERS, caliberKey, caliberLabel, chamberAccepts } from '../calibers.js';
 import { getSettings } from '../settings.js';
-import { idParam, isoDate, parse, todayIn } from '../util.js';
+import { idParam, isoDate, parse, todayIn, parsePatch } from '../util.js';
 
 export const FIREARM_TYPES = ['handgun', 'rifle', 'shotgun', 'pcc', 'other'] as const;
 export const PART_CATEGORIES = ['optic', 'light', 'laser', 'sling', 'trigger', 'stock', 'brace', 'barrel', 'muzzle', 'suppressor', 'handguard', 'grip', 'magazine', 'holster', 'case', 'cleaning', 'other'] as const;
@@ -174,7 +174,7 @@ export default async function armoryRoutes(app: FastifyInstance, deps: AppDeps) 
     const hh = requireArmory(req, 'member');
     const { id } = parse(idParam, req.params);
     const cur = getFirearm(hh, id);
-    const n = { ...cur, ...parse(firearmInput.partial(), req.body) };
+    const n = { ...cur, ...parsePatch(firearmInput, req.body) };
     db.prepare(`UPDATE firearms SET name=@name,make=@make,model=@model,variant=@variant,type=@type,action=@action,caliber=@caliber,barrel_in=@barrel_in,capacity=@capacity,
       serial=@serial,acquired_on=@acquired_on,price=@price,condition=@condition,location=@location,round_count=@round_count,clean_every=@clean_every,status=@status,notes=@notes,updated_at=@t
       WHERE id=@id AND household_id=@hh`).run({ ...n, barrel_in: n.barrel_in ?? null, capacity: n.capacity ?? null, acquired_on: n.acquired_on ?? null, price: n.price ?? null, clean_every: n.clean_every ?? null, t: Date.now(), id, hh });
@@ -217,7 +217,7 @@ export default async function armoryRoutes(app: FastifyInstance, deps: AppDeps) 
     const { id } = parse(idParam, req.params);
     const cur = db.prepare('SELECT * FROM firearm_parts WHERE id=? AND household_id=?').get(id, hh) as z.infer<typeof partInput> | undefined;
     if (!cur) throw new HttpError(404, 'Part not found');
-    const patch = parse(partInput.partial(), req.body);
+    const patch = parsePatch(partInput, req.body);
     if ('firearm_id' in patch) assertFirearmRef(hh, patch.firearm_id);
     const n = { ...cur, ...patch };
     db.prepare('UPDATE firearm_parts SET firearm_id=?,category=?,make=?,model=?,qty=?,serial=?,installed_on=?,price=?,notes=?,updated_at=? WHERE id=? AND household_id=?')
@@ -250,7 +250,7 @@ export default async function armoryRoutes(app: FastifyInstance, deps: AppDeps) 
   app.patch('/api/armory/ammo/:id', async (req) => {
     const hh = requireArmory(req, 'member');
     const { id } = parse(idParam, req.params);
-    const n = { ...getAmmo(hh, id), ...parse(ammoInput.partial(), req.body) } as z.infer<typeof ammoInput>;
+    const n = { ...getAmmo(hh, id), ...parsePatch(ammoInput, req.body) } as z.infer<typeof ammoInput>;
     db.prepare(`UPDATE ammo SET caliber=?,brand=?,line=?,grain=?,bullet=?,purpose=?,rounds=?,min_rounds=?,location=?,barcode=?,lot=?,price_per_round=?,notes=?,updated_at=? WHERE id=? AND household_id=?`)
       .run(caliberLabel(n.caliber), n.brand, n.line, n.grain ?? null, n.bullet, n.purpose, n.rounds, n.min_rounds ?? null, n.location, n.barcode ?? null, n.lot, n.price_per_round ?? null, n.notes, Date.now(), id, hh);
     touchWrite(db);

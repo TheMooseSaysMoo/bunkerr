@@ -30,6 +30,12 @@ export const config = {
   mqttTlsInsecure: (env.MQTT_TLS_INSECURE ?? 'false') === 'true',
   /** Topic filter(s), comma-separated. Only ".../json/..." topics are parsed; gateways need "JSON output enabled". */
   mqttTopics: (env.MQTT_TOPICS ?? 'msh/#').split(',').map((s) => s.trim()).filter(Boolean),
+  /** Root topic that mesh packets relayed from linked servers are published under (e.g. msh/US/MyTown). Default: from MQTT_TOPICS, else learned from traffic. */
+  mqttRoot: (env.MQTT_ROOT ?? '').replace(/\/+$/, ''),
+  /** Linked households on other Bunkerr servers (docs/13-linked-households.md). */
+  federation: (env.FEDERATION ?? 'on') !== 'off',
+  /** Allow links to servers on private addresses or plain http (both servers on one LAN or VPN). */
+  federationAllowPrivate: (env.FEDERATION_ALLOW_PRIVATE ?? 'false') === 'true',
   docsDir: path.resolve(env.DOCS_DIR ?? './docs'),
   webDir: path.resolve(env.WEB_DIR ?? './dist-web'),
   schedulerEnabled: (env.SCHEDULER_ENABLED ?? 'true') === 'true',

@@ -10,6 +10,16 @@ export function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T>
   return r.data;
 }
 
+/**
+ * A PATCH body: only the fields the client sent. Zod 4 fills in .default() values even on a
+ * .partial() schema, which would quietly reset every field the client left out.
+ */
+export function parsePatch<T extends z.ZodObject>(schema: T, data: unknown): Partial<z.infer<T>> {
+  const parsed = parse(schema.partial(), data) as Record<string, unknown>;
+  const sent = new Set(data && typeof data === 'object' ? Object.keys(data) : []);
+  return Object.fromEntries(Object.entries(parsed).filter(([k]) => sent.has(k))) as Partial<z.infer<T>>;
+}
+
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
 export const idParam = z.object({ id: z.coerce.number().int().positive() });
 

@@ -15,7 +15,7 @@ Everything (inventory, gardens, nodes, notification settings) belongs to a **hou
 - **Invite someone to your household:** Settings → Household → *create invite*. Send the link; it works once and expires in 7 days.
 - **Help someone start their own household:** an instance admin uses Settings → Instance admin → *create* to make a "new household" invite link. They register and become owner of a new, separate household.
 - Anyone signed in can also start another household (e.g. a cabin) from Settings.
-- Households never see each other's data.
+- Households never see each other's data, unless an owner **links** with a household on another Bunkerr server and chooses what to share. See [Linked households](13-linked-households.md).
 
 ## Inventory sections
 

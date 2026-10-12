@@ -47,8 +47,9 @@ export function meResponse(deps: AppDeps, userId: number, activeHh: number | nul
     households,
     active,
     armoryVisible: !!active && armoryVisibleTo(getSettings(db, active.id), active.role),
+    links: active ? (db.prepare(`SELECT COUNT(*) AS n FROM links WHERE household_id=?`).get(active.id) as { n: number }).n : 0,
     instance: deps.ha.status(),
-    features: { router: !!config.webhookRouterUrl, photoImport: !!deps.extractor, mesh: !!config.mqttUrl, barcodeProducts: deps.barcodes?.status().products ?? 0, email: deps.mailer.ready() },
+    features: { router: !!config.webhookRouterUrl, photoImport: !!deps.extractor, mesh: !!config.mqttUrl, barcodeProducts: deps.barcodes?.status().products ?? 0, email: deps.mailer.ready(), links: deps.federation.enabled },
   };
 }
 

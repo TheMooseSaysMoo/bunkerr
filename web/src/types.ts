@@ -6,7 +6,9 @@ export interface Me {
   households: { id: number; name: string; role: Role }[];
   active: { id: number; name: string; role: Role } | null;
   armoryVisible: boolean;
-  features: { router: boolean; photoImport: boolean; mesh: boolean; barcodeProducts: number; email: boolean };
+  /** Links the active household has with households on other servers. */
+  links: number;
+  features: { router: boolean; photoImport: boolean; mesh: boolean; barcodeProducts: number; email: boolean; links: boolean };
   instance: { node: string; role: 'primary' | 'standby'; active: boolean; promoted: boolean; peerActive: boolean; lastSyncAt: number | null; lastSyncError: string | null };
 }
 
@@ -39,3 +41,28 @@ export interface MeshNode {
 
 export const CATEGORIES = ['food', 'water', 'medical', 'hygiene', 'power', 'tools', 'comms', 'garden', 'other'] as const;
 export const UNITS = ['ea', 'can', 'jar', 'box', 'bag', 'bottle', 'pack', 'lb', 'oz', 'kg', 'g', 'gal', 'L', 'roll', 'dose'];
+
+export interface LinkShare { summary: boolean; inventory: boolean; power: boolean; mesh: boolean }
+export interface LinkSummary {
+  people: number; foodDays: number | null; waterDays: number | null; waterGallons: number;
+  counts: { category: string; batches: number; qty: number }[];
+  expired: number; soon: number; lowStock: number; power: { devices: number; due: number }; mesh: { total: number; online: number };
+}
+export interface LinkFeed {
+  household: string; generated_at: number; shares: LinkShare; relay_channels: string[];
+  summary?: LinkSummary;
+  items?: { name: string; category: string; qty: number; unit: string; expires_on: string | null; min_qty: number | null }[];
+  power?: { name: string; kind: string; brand: string; model: string; capacity_wh: number | null; output_w: number | null; fuel: string; charge_pct: number | null; next_due_on: string | null; next_task: string | null }[];
+  mesh?: { node_id: string; name: string; short_name: string | null; site: string; hw_model: string | null; role: string | null; last_heard: number | null; online: boolean; battery: number | null; ch_util: number | null; snr: number | null; hops_away: number | null }[];
+}
+export interface RelayStats { sent: number; received: number; dropped: number; lastSentAt: number | null; lastReceivedAt: number | null; error: string | null }
+export interface Link {
+  id: number; status: 'active' | 'ended'; peer_url: string; peer_host: string; peer_household: string;
+  share: LinkShare; relay_channels: string[]; relay: RelayStats | null;
+  feed_at: number | null; pull_at: number | null; pull_error: string | null; seen_at: number | null; created_at: number;
+  feed?: LinkFeed | null; summary: LinkSummary | null;
+}
+export interface LinksData {
+  enabled: boolean; links: Link[]; codes: { id: number; created_at: number; expires_at: number }[];
+  relay: { available: boolean; root: string | null; canEdit: boolean };
+}
