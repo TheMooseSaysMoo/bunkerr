@@ -1,0 +1,6 @@
+# Gateways publish and receive mesh traffic; Bunkerr only reads.
+user gateway
+topic readwrite msh/#
+
+user bunkerr
+topic read msh/#

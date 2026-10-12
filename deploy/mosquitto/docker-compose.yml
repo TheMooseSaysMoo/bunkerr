@@ -1,0 +1,18 @@
+# Optional private Meshtastic broker. Run from this directory on the broker host:
+#   docker compose up -d
+# Then set MQTT_URL in Bunkerr's .env (e.g. mqtt://192.168.1.10:1883).
+name: bunkerr-mqtt
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: bunkerr-mosquitto
+    restart: unless-stopped
+    ports:
+      # Gateways connect here (LAN or Tailscale). Do NOT port-forward this to the internet.
+      - "${MQTT_BIND:-1883}:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./passwd:/mosquitto/config/passwd:ro
+      - ./acl:/mosquitto/config/acl:ro
+      - ./data:/mosquitto/data

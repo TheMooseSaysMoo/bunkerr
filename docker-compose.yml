@@ -1,0 +1,37 @@
+# Bunkerr. First run: ./setup.sh   (or: cp .env.example .env, edit, docker compose up -d --build)
+# Failover pair: the same file on both hosts; each host's .env decides its role.
+#   primary:  ./deploy.sh
+#   standby:  ./deploy.sh   with COMPOSE_PROFILES=standby in .env (adds the watchdog)
+name: bunkerr
+
+services:
+  bunkerr:
+    build: .
+    # Overridable so two copies can share a host (with COMPOSE_PROJECT_NAME and different ports).
+    image: ${BUNKERR_IMAGE:-bunkerr:local}
+    container_name: ${BUNKERR_CONTAINER:-bunkerr}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    ports:
+      # "8787" on all interfaces (a reverse proxy elsewhere on the LAN), or "127.0.0.1:8787" for a proxy
+      # or Cloudflare tunnel on this host. The second bind is for a failover peer on a private network.
+      - "${BUNKERR_BIND:-8787}:8787"
+      - "${BUNKERR_BIND_TAILNET:-127.0.0.1:18787}:8787"
+
+  # Standby only: promotes this host and flips the Cloudflare CNAME when the primary is down.
+  watchdog:
+    profiles: ["standby"]
+    image: alpine:3.22
+    container_name: ${BUNKERR_CONTAINER:-bunkerr}-watchdog
+    restart: unless-stopped
+    env_file: .env
+    entrypoint: ["/bin/sh", "/failover/entry.sh"]
+    command: ["/failover/watchdog.sh"]
+    volumes:
+      - ./deploy/failover:/failover:ro
+    depends_on:
+      - bunkerr

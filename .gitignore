@@ -1,0 +1,10 @@
+node_modules/
+dist-web/
+server/dist/
+/data/
+.env
+*.db
+*.db-*
+
+# Homelab-specific runbook and notes (never committed)
+/local/
