@@ -4,7 +4,7 @@ import type { AppDeps } from '../app.js';
 import { HttpError, requireHousehold } from '../auth.js';
 import { touchWrite, type DB } from '../db.js';
 import { getSettings } from '../settings.js';
-import { addDays, daysBetween, idParam, isoDate, parse, todayIn } from '../util.js';
+import { addDays, daysBetween, idParam, isoDate, parse, parsePatch, todayIn } from '../util.js';
 
 /**
  * Power equipment: power banks, power stations, UPS battery backups, generators, solar and
@@ -133,8 +133,7 @@ export default async function powerRoutes(app: FastifyInstance, deps: AppDeps) {
   app.patch('/api/power/:id', async (req) => {
     const hh = requireHousehold(req, 'member');
     const { id } = parse(idParam, req.params);
-    own(hh, id);
-    const b = parse(equipmentInput, req.body);
+    const b = { ...(own(hh, id) as unknown as z.infer<typeof equipmentInput>), ...parsePatch(equipmentInput, req.body) };
     db.prepare(`UPDATE equipment SET name=?,kind=?,brand=?,model=?,capacity_wh=?,capacity_mah=?,output_w=?,fuel=?,location=?,serial=?,purchased_on=?,charge_pct=?,run_hours=?,notes=?,updated_at=?
       WHERE id=? AND household_id=?`).run(b.name, b.kind, b.brand, b.model, b.capacity_wh ?? null, b.capacity_mah ?? null, b.output_w ?? null, b.fuel, b.location, b.serial,
       b.purchased_on ?? null, b.charge_pct ?? null, b.run_hours ?? null, b.notes, Date.now(), id, hh);
@@ -172,11 +171,12 @@ export default async function powerRoutes(app: FastifyInstance, deps: AppDeps) {
     const hh = requireHousehold(req, 'member');
     const { id } = parse(idParam, req.params);
     const cur = ownTask(hh, id);
-    const b = parse(taskInput, req.body);
+    const patch = parsePatch(taskInput, req.body);
+    const b = { ...cur, ...patch };
     // Changing the interval without picking a date re-suggests the date from the last time it was done.
-    const next = b.next_due_on ?? (b.every_days !== cur.every_days ? addDays(b.last_done_on ?? cur.last_done_on ?? today(hh), b.every_days) : cur.next_due_on);
+    const next = patch.next_due_on ?? (b.every_days !== cur.every_days ? addDays(b.last_done_on ?? today(hh), b.every_days) : cur.next_due_on);
     db.prepare('UPDATE equipment_tasks SET label=?, every_days=?, last_done_on=?, next_due_on=?, notes=? WHERE id=? AND household_id=?')
-      .run(b.label, b.every_days, b.last_done_on === undefined ? cur.last_done_on : b.last_done_on, next, b.notes, id, hh);
+      .run(b.label, b.every_days, b.last_done_on ?? null, next, b.notes, id, hh);
     touchWrite(db);
     return { ok: true, next_due_on: next };
   });

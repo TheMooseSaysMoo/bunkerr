@@ -18,5 +18,13 @@ describe('partial updates', () => {
     const ammo = (await c.post('/api/armory/ammo', { caliber: '9mm', brand: 'Speer', line: 'Gold Dot', purpose: 'defense', rounds: 50, location: 'safe' })).json;
     await c.patch(`/api/armory/ammo/${ammo.id}`, { rounds: 40 });
     expect(db.prepare('SELECT brand, line, purpose, rounds, location FROM ammo WHERE id=?').get(ammo.id)).toEqual({ brand: 'Speer', line: 'Gold Dot', purpose: 'defense', rounds: 40, location: 'safe' });
+
+    const eq = (await c.post('/api/power', { name: 'Generac', kind: 'generator', brand: 'Generac', serial: 'G9', fuel: 'gas', notes: '10W-30', tasks: [{ label: 'Change oil', every_days: 365, notes: '0.6 qt' }] })).json;
+    expect((await c.patch(`/api/power/${eq.id}`, { charge_pct: 80 })).status).toBe(200);
+    expect(db.prepare('SELECT kind, brand, serial, fuel, notes, charge_pct FROM equipment WHERE id=?').get(eq.id)).toEqual({ kind: 'generator', brand: 'Generac', serial: 'G9', fuel: 'gas', notes: '10W-30', charge_pct: 80 });
+    // The editor re-sends each reminder without its notes.
+    const task = db.prepare('SELECT id FROM equipment_tasks WHERE equipment_id=?').get(eq.id) as { id: number };
+    expect((await c.patch(`/api/power/tasks/${task.id}`, { label: 'Change oil' })).status).toBe(200);
+    expect(db.prepare('SELECT every_days, notes FROM equipment_tasks WHERE id=?').get(task.id)).toEqual({ every_days: 365, notes: '0.6 qt' });
   });
 });
