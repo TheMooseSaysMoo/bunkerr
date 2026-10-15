@@ -11,7 +11,7 @@ Bunkerr runs as one Docker container with its data in a single SQLite file. Any 
 ## Quick start
 
 ```sh
-git clone https://github.com/<you>/bunkerr.git
+git clone https://github.com/TheMooseSaysMoo/bunkerr.git
 cd bunkerr
 ./setup.sh
 ```

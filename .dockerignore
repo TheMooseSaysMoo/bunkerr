@@ -5,3 +5,4 @@ data
 .git
 .env
 *.db
+docs/images
